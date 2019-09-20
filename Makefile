@@ -21,8 +21,7 @@ else
 endif
 
 test:
-	@echo "--> Running go test"
-	@go test ./... $(LDFLAGS) -v --race
+	go test $(LDFLAGS) -v --race
 
 tools:
 	go get -v $(GOTOOLS)
