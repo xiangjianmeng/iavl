@@ -399,6 +399,9 @@ func (node *Node) traverseWithDepth(t *ImmutableTree, ascending bool, cb func(*N
 }
 
 func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
+	if node == nil {
+		return false
+	}
 	afterStart := start == nil || bytes.Compare(start, node.key) < 0
 	startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
 	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
