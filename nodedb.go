@@ -775,3 +775,42 @@ func (ndb *nodeDB) String() string {
 	})
 	return "-" + "\n" + str + "-"
 }
+
+// Import imports a set of ExportItems into an empty tree.
+// FIXME This should use an import iterator.
+func (ndb *nodeDB) Import(version int64, items []ExportItem) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if version <= 0 {
+		return errors.New("Imported version must be >0")
+	}
+	if ndb.latestVersion > 0 {
+		return errors.Errorf("Can only import into blank database, found version %v", ndb.latestVersion)
+	}
+
+	batch := ndb.snapshotDB.NewBatch()
+	defer batch.Close()
+
+	for i, item := range items {
+		node, err := MakeNode(item)
+		if err != nil {
+			return err
+		}
+		node._hash()
+		if node.version > version {
+			return errors.Errorf("Node version %v can't be greater than import version %v",
+				node.version, version)
+		}
+		batch.Set(ndb.nodeKey(node.hash), item)
+		if i == 0 {
+			batch.Set(ndb.rootKey(version), node.hash)
+		}
+	}
+	err := batch.WriteSync()
+	if err != nil {
+		return err
+	}
+	ndb.updateLatestVersion(version)
+	return nil
+}

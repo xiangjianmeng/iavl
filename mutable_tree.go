@@ -646,3 +646,22 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 		tree.orphans[string(node.hash)] = node.version
 	}
 }
+
+// Import imports a set of ExportItems into an empty tree.
+// FIXME This should use an import iterator.
+func (tree *MutableTree) Import(version int64, items []ExportItem) error {
+	if len(tree.versions) > 0 {
+		return errors.Errorf("Can't import into tree with existing versions")
+	}
+	err := tree.ndb.Import(version, items)
+	if err != nil {
+		return err
+	}
+	root, err := tree.ndb.getRoot(version)
+	if err != nil {
+		return err
+	}
+	tree.ImmutableTree.root = tree.ndb.GetNode(root)
+	tree.versions[version] = true
+	return nil
+}
