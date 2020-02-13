@@ -665,5 +665,6 @@ func (tree *MutableTree) Import(version int64, items []ExportItem) error {
 		tree.ImmutableTree.root = tree.ndb.GetNode(root)
 	}
 	tree.versions[version] = true
+	tree.version = version
 	return nil
 }
