@@ -653,6 +653,9 @@ func (tree *MutableTree) Import(version int64, items []ExportItem) error {
 	if len(tree.versions) > 0 {
 		return errors.Errorf("Can't import into tree with existing versions")
 	}
+	if len(items) == 0 {
+		return nil
+	}
 	err := tree.ndb.Import(version, items)
 	if err != nil {
 		return err
@@ -666,5 +669,10 @@ func (tree *MutableTree) Import(version int64, items []ExportItem) error {
 	}
 	tree.versions[version] = true
 	tree.version = version
+	last, err := tree.GetImmutable(version)
+	if err != nil {
+		return err
+	}
+	tree.lastSaved = last
 	return nil
 }
