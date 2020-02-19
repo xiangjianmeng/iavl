@@ -366,11 +366,10 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 
 	// Traverse starting from afterLeft, until keyEnd or the next leaf
 	// after keyEnd.
-	var innersq = []PathToLeaf(nil)
-	var inners = PathToLeaf(nil)
+	var allPathToLeafs = []PathToLeaf(nil)
+	var currentPathToLeaf = PathToLeaf(nil)
 	var leafCount = 1 // from left above.
 	var pathCount = 0
-	// var keys, values [][]byte defined as function outs.
 
 	t.root.traverseInRange(t, afterLeft, nil, true, false, 0,
 		func(node *Node, depth uint8) (stop bool) {
@@ -396,10 +395,10 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 			}
 
 			if node.height == 0 {
-				// Leaf node.
-				// Append inners to innersq.
-				innersq = append(innersq, inners)
-				inners = PathToLeaf(nil)
+				// Append inners (PathToLeaf) that we tracked so far to get to this leaf node to innersq.
+				allPathToLeafs = append(allPathToLeafs, currentPathToLeaf)
+				// Start a new one to track as we traverse the tree.
+				currentPathToLeaf = PathToLeaf(nil)
 				// Append leaf to leaves.
 				leaves = append(leaves, ProofLeafNode{
 					Key:       node.key,
@@ -425,14 +424,19 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 				}
 			} else {
 				// Inner node.
-				if pathCount >= 0 {
-					// Skip redundant path items.
-				} else {
-					inners = append(inners, ProofInnerNode{
+				if pathCount < 0 {
+					// Only store in inners if the node is not stored in PathToLeaf already.
+					// We track if we are still going through PathToLeaf using pathCount.
+					// When pathCount goes to -1, we start storing the other paths we took
+					// to get to the leaf nodes.
+					// Also we skip storing the left node, since we are traversing the tree
+					// starting from the left and don't need to store unnecessary info as we only
+					// need to go down the right path.
+					currentPathToLeaf = append(currentPathToLeaf, ProofInnerNode{
 						Height:  node.height,
 						Size:    node.size,
 						Version: node.version,
-						Left:    nil, // left is nil for range proof inners
+						Left:    nil,
 						Right:   node.rightHash,
 					})
 				}
@@ -443,7 +447,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 
 	return &RangeProof{
 		LeftPath:   path,
-		InnerNodes: innersq,
+		InnerNodes: allPathToLeafs,
 		Leaves:     leaves,
 	}, keys, values, nil
 }
