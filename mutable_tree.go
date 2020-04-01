@@ -10,6 +10,8 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
+var startVersion int64 = 0
+
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
@@ -24,7 +26,8 @@ type MutableTree struct {
 
 // NewMutableTree returns a new tree with the specified cache size and datastore
 // To maintain backwards compatibility, this function will initialize PruningStrategy{keepEvery: 1, keepRecent: 0}
-func NewMutableTree(db dbm.DB, cacheSize int) (*MutableTree, error) {
+func NewMutableTree(db dbm.DB, cacheSize int, version int64) (*MutableTree, error) {
+	startVersion = version
 	// memDB is initialized but should never be written to
 	memDB := dbm.NewMemDB()
 	return NewMutableTreeWithOpts(db, memDB, cacheSize, nil)
@@ -53,7 +56,8 @@ func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts 
 	}
 
 	ndb := newNodeDB(snapDB, recentDB, cacheSize, opts)
-	head := &ImmutableTree{ndb: ndb}
+	head := &ImmutableTree{ndb: ndb, version: startVersion}
+	ndb.latestVersion = startVersion
 
 	return &MutableTree{
 		ImmutableTree: head,
@@ -299,12 +303,12 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	// no versions have been saved if the latest version is non-positive
-	if latestVersion <= 0 {
+	if latestVersion <= startVersion {
 		return 0, nil
 	}
 
 	// default to the latest version if the targeted version is non-positive
-	if targetVersion <= 0 {
+	if targetVersion <= startVersion {
 		targetVersion = latestVersion
 	}
 
@@ -347,13 +351,13 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	var latestRoot []byte
 	for version, r := range roots {
 		tree.versions[version] = true
-		if version > latestVersion && (targetVersion == 0 || version <= targetVersion) {
+		if version > latestVersion && (targetVersion == startVersion || version <= targetVersion) {
 			latestVersion = version
 			latestRoot = r
 		}
 	}
 
-	if !(targetVersion == 0 || latestVersion == targetVersion) {
+	if !(targetVersion == startVersion || latestVersion == targetVersion) {
 		return latestVersion, fmt.Errorf("wanted to load target %v but only found up to %v",
 			targetVersion, latestVersion)
 	}

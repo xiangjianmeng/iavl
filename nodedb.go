@@ -382,7 +382,7 @@ func (ndb *nodeDB) rootKey(version int64) []byte {
 }
 
 func (ndb *nodeDB) getLatestVersion() int64 {
-	if ndb.latestVersion == 0 {
+	if ndb.latestVersion == startVersion {
 		ndb.latestVersion = ndb.getPreviousVersion(1<<63 - 1)
 	}
 	return ndb.latestVersion
@@ -426,7 +426,7 @@ func getPreviousVersionFromDB(version int64, db dbm.DB) int64 {
 		return pversion
 	}
 
-	return 0
+	return startVersion
 }
 
 // deleteRoot deletes the root entry from disk, but not the node it points to.
